@@ -1,179 +1,162 @@
 # Finance Tracking Application
 
+A full-stack finance tracking web application that delivers real-time exchange rates and asset prices, historical trend analysis with interactive charts, and social features such as comments, profiles, and follows. The frontend is a React single-page application; the backend is a Flask REST API backed by SQLite.
+
 ## Table of Contents
 
-1. Introduction
-2. Project Purpose & Scope
-3. Architecture & System Design
-4. Technologies Used
-5. Setup & Run
-6. File Structure & Modules
-7. Use Cases & Features
-8. API Integration Details
-9. UI & Workflows
-10. Testing
-11. Deployment
-12. Troubleshooting & Support
-13. Contributors & Contact
-14. Roadmap & Future Improvements
-15. License
-16. Additional Resources
+- [Overview](#overview)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Architecture](#architecture)
+- [Project Structure](#project-structure)
+- [API Overview](#api-overview)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Backend Setup](#backend-setup)
+  - [Frontend Setup](#frontend-setup)
+  - [Development Proxy](#development-proxy)
+- [Docker Deployment](#docker-deployment)
+- [Testing](#testing)
+- [Troubleshooting](#troubleshooting)
+- [Roadmap](#roadmap)
 
----
+## Overview
 
-## Introduction
+The project was restructured from a traditional Flask + Jinja multi-page application into a React-based single-page application (SPA). The Flask backend now serves REST-style JSON endpoints, authentication, and data access, while React handles all rendering and routing on the client. This eliminates full-page reloads, speeds up navigation, and allows live market data to be shared across pages without repeated requests.
 
-The **Finance Tracking Application** is a modern web application that allows users to track real-time financial data, analyze historical trends through charts, and interact with finance-related content through social features.
+- **Frontend** — React with Vite and React Router. A central `LiveDataContext` polls the backend every 60 seconds and feeds the live ticker bar and all pages from a single shared dataset. Polling pauses automatically when the browser tab is in the background.
+- **Backend** — Flask served by Waitress, with SQLAlchemy models on SQLite. Market data is sourced from external financial APIs, news is aggregated via feed parsing, and responses are cached to reduce upstream calls.
 
-The project has been restructured from a traditional Flask + Jinja multi-page application into a **React-based Single Page Application (SPA)** architecture. This change improves perceived performance, enables faster page transitions, and creates a more modern and responsive user experience.
+## Features
 
-The backend remains Flask-based and is now primarily responsible for serving **REST-style API endpoints**, authentication logic, and data access.
+- **Live Market Data** — up-to-date exchange rates and asset prices displayed on the homepage and in a persistent ticker-style top bar with equal-width chips, price-change highlighting, and smooth horizontal scrolling on small screens.
+- **Historical Charts** — asset detail and analysis pages render daily, weekly, monthly, and yearly charts, including client-side RSI calculation.
+- **Currency Converter** — client-side conversion between assets using live rates.
+- **News Feed** — aggregated financial news.
+- **Authentication** — registration, login, and session-based authentication.
+- **Social Features** — comment threads with replies, likes and dislikes, user profiles, and follow/unfollow functionality.
+- **Price Alarms** — backend endpoints for setting and clearing price alerts.
+- **Admin Panel** — Flask-Admin integration for data management.
+- **Fast Navigation** — SPA routing keeps the layout mounted while page content changes; no full page reloads.
 
-<img width="1470" height="956" alt="Ekran Resmi 2026-04-17 23 25 10" src="https://github.com/user-attachments/assets/59949f84-31ff-435f-ba34-aac4a28fe054" />
-
-
-
-<img width="1470" height="667" alt="Ekran Resmi 2026-06-24 11 32 26" src="https://github.com/user-attachments/assets/ab092ecb-546f-401a-968f-4ce55d81f63a" />
-
-
-
-
-
----
-
-## Project Purpose & Scope
-
-### Purpose
-
-* **Real-time data:** Provide up-to-date exchange rates and asset prices
-* **Fast navigation:** Eliminate full page reloads with SPA architecture
-* **Trend tracking:** Visual indicators for price increases/decreases
-* **Charts:** Daily, weekly, monthly, and yearly analysis
-* **Shared live state:** Reuse fetched live data across multiple pages without unnecessary repeated requests
-* **User experience:** Cleaner, smoother, and more responsive interface
-* **Social features:** Support user interaction, comments, and profile-based features
-
-### Scope
-
-* **Frontend:** React + Vite + React Router
-* **Backend:** Python + Flask API service
-* **Database:** SQLite (can be extended later)
-* **Data Source:** External financial APIs
-* **UI Goal:** Lightweight, responsive, and navigation-friendly financial dashboard
-
----
-
-## Architecture & System Design
-
-### General Architecture
-
-The project now follows a **frontend-backend separated architecture**:
-
-* **Frontend (React SPA):** Responsible for rendering pages, routing, top bar, and client-side interactions
-* **Backend (Flask API):** Provides financial data, historical data, authentication-related operations, and business logic
-* **Shared State Layer:** Centralized client-side live data management using a context-based structure
-
-This architecture removes the traditional server-rendered page flow and replaces it with a client-rendered interface that communicates with the backend through API calls.
-
-### Components
-
-* **React SPA Frontend**
-  * Handles page transitions without full reload
-  * Uses React Router for navigation
-  * Improves responsiveness and user experience
-
-* **LiveDataContext**
-  * Centralized state manager for live financial data
-  * Polls backend data periodically (for example every 60 seconds)
-  * Prevents duplicate requests when moving between pages
-  * Ensures top bar and homepage use the same live dataset
-
-* **Flask API Backend**
-  * Serves `/api/*` endpoints
-  * Handles business logic and data processing
-  * Can continue using existing backend logic with minimal disruption
-
-* **Historical Chart Services**
-  * Provides chart data for selected assets and time ranges
-  * Used by analysis and asset detail pages
-
----
-
-## Technologies Used
+## Tech Stack
 
 ### Frontend
 
-* React
-* Vite
-* React Router
-* JavaScript
-* CSS3
+| Technology | Purpose |
+|---|---|
+| React 18 | UI library |
+| Vite | Build tool and dev server |
+| React Router | Client-side routing |
+| React Context API | Shared live-data state |
+| Chart.js | Historical charts |
+| CSS3 | Styling |
 
 ### Backend
 
-* Python 3.x
-* Flask
+| Technology | Purpose |
+|---|---|
+| Python 3.10+ / Flask | Web framework and REST API |
+| Flask-SQLAlchemy | ORM over SQLite |
+| Flask-Migrate | Database migrations |
+| Flask-Caching | Response caching |
+| Flask-Admin | Admin interface |
+| Waitress | Production WSGI server |
+| yfinance | Market data source |
+| feedparser | News aggregation |
+| pytest | Testing |
 
-### State Management
+## Architecture
 
-* React Context API
+```
+┌────────────────────┐      JSON over HTTP      ┌────────────────────┐        ┌──────────────┐
+│   React SPA        │ ───────────────────────► │   Flask API        │ ─────► │    SQLite    │
+│   Vite (5173)      │ ◄─────────────────────── │   Waitress (8000)  │ ◄───── │ (SQLAlchemy) │
+│   LiveDataContext  │                          └─────────┬──────────┘        └──────────────┘
+└────────────────────┘                                    │
+                                                          ▼
+                                               ┌────────────────────┐
+                                               │ External financial │
+                                               │ data and news APIs │
+                                               └────────────────────┘
+```
 
-### Database
+- The React frontend requests data from the backend's `/api/*` endpoints; session cookies handle authentication.
+- `LiveDataContext` fetches `/api/data` once every 60 seconds and distributes it to the top bar, homepage, news, and converter pages — navigating between pages triggers no additional requests.
+- The backend fetches market data from external providers, caches results, and persists users, comments, and follows in SQLite.
 
-* SQLite
+## Project Structure
 
-### API
+```
+.
+├── app/                        # Flask backend
+│   ├── __init__.py             # App factory, logging, request hooks
+│   ├── config.py               # Configuration
+│   ├── models.py               # SQLAlchemy models (users, comments, follows, ...)
+│   ├── admin.py                # Flask-Admin setup
+│   ├── utils.py                # Helpers
+│   ├── routes/
+│   │   ├── main.py             # Live data and asset endpoints
+│   │   ├── auth.py             # Register, login, logout
+│   │   ├── comments.py         # Comment threads, likes, replies
+│   │   ├── profile.py          # Profiles and follows
+│   │   └── json_api.py         # JSON endpoints for the SPA
+│   ├── static/                 # Static assets
+│   └── templates/              # Legacy Jinja templates
+├── finance-react/              # React SPA frontend
+│   ├── vite.config.js          # Dev server and API proxy
+│   └── src/
+│       ├── context/            # LiveDataContext (shared live data)
+│       ├── components/         # Layout, LiveRateBar, Navbar, ...
+│       └── pages/              # Home, Converter, Analysis, News, About,
+│                               # Comments, Profile, Login, Register,
+│                               # AssetDetail, NotFound
+├── run.py                      # Backend entry point (Waitress on port 8000)
+├── requirements.txt            # Python dependencies
+├── test.py                     # Backend tests
+├── Dockerfile                  # Backend container image
+└── docker-compose.yml          # Backend + frontend orchestration
+```
 
-* Financial data APIs
-* Historical asset data APIs
+## API Overview
 
-### Testing
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/data` | Live market data for all tracked assets |
+| GET | `/asset/<name>/chart/<timeframe>` | Historical chart data for an asset |
+| GET | `/api/comments` | Full comment tree |
+| GET | `/api/profile/<username>` | Profile with comments and follow lists |
+| GET | `/api/me` | Currently authenticated user |
+| POST | `/login`, `/register`, `/logout` | Authentication |
+| POST | `/add_comment`, `/like_comment`, `/dislike_comment`, `/delete_comment` | Comment interactions |
+| POST | `/follow`, `/unfollow` | Follow management |
+| POST | `/set_alarm`, `/clear_alarm` | Price alerts |
 
-* pytest
-* Frontend component/page testing can be extended later
+## Getting Started
 
-### Tools
+### Prerequisites
 
-* Git
-* Docker
-* npm
+- Python 3.10 or later
+- Node.js 18 or later and npm
 
----
+### Backend Setup
 
-## Setup & Run
-
-### Requirements
-
-* Python 3.10+
-* Node.js 18+
-* npm
-* Git
-
-### Installation Steps
-
-#### 1. Clone the repository
-
-```bash
-git clone https://github.com/pltthakan/FinanceWeb.git
-cd FinanceWeb
-````
-
-#### 2. Backend setup
+From the project root:
 
 ```bash
 python -m venv env
-source env/bin/activate   # macOS/Linux
+source env/bin/activate      # macOS/Linux
+env\Scripts\activate         # Windows
+
 pip install -r requirements.txt
 python run.py
 ```
 
-Backend runs by default on:
+The API runs at `http://localhost:8000`. The SQLite database is created automatically on first start.
 
-```text
-http://localhost:5000
-```
+### Frontend Setup
 
-#### 3. Frontend setup
+In a separate terminal:
 
 ```bash
 cd finance-react
@@ -181,291 +164,65 @@ npm install
 npm run dev
 ```
 
-Frontend runs by default on:
+The application is available at `http://localhost:5173`.
 
-```text
-http://localhost:5173
-```
+### Development Proxy
 
-### Frontend Proxy
+The Vite dev server proxies all API and session routes (`/api`, `/asset`, `/login`, `/profile`, and others) to the Flask backend, so session cookies work without manual CORS configuration. The backend address defaults to `http://localhost:8000` and can be overridden with the `VITE_FLASK_URL` environment variable.
 
-To simplify development, Vite can proxy API requests to Flask:
+## Docker Deployment
 
-```js
-server: {
-  proxy: {
-    '/api': 'http://localhost:5000',
-    '/asset': 'http://localhost:5000'
-  }
-}
-```
-
-This allows the React frontend to call backend endpoints without manual CORS handling during development.
-
----
-
-## File Structure & Modules
-
-### Main Structure
-
-```text
-FinanceWeb/
-├── app/
-│   ├── __init__.py
-│   ├── models.py
-│   ├── utils.py
-│   ├── routes/
-│   │   ├── auth.py
-│   │   ├── main.py
-│   │   ├── profile.py
-│   │   └── comments.py
-│   └── static/
-├── finance-react/
-│   ├── package.json
-│   ├── vite.config.js
-│   └── src/
-│       ├── main.jsx
-│       ├── App.jsx
-│       ├── api.js
-│       ├── index.css
-│       ├── context/
-│       │   └── LiveDataContext.jsx
-│       ├── components/
-│       │   ├── Layout.jsx
-│       │   ├── LiveRateBar.jsx
-│       │   ├── Navbar.jsx
-│       │   └── ParticlesBackground.jsx
-│       └── pages/
-│           ├── Home.jsx
-│           ├── Converter.jsx
-│           ├── Analysis.jsx
-│           ├── News.jsx
-│           ├── About.jsx
-│           ├── Comments.jsx
-│           ├── Profile.jsx
-│           ├── Login.jsx
-│           ├── Register.jsx
-│           ├── AssetDetail.jsx
-│           └── NotFound.jsx
-├── run.py
-├── requirements.txt
-├── Dockerfile
-└── README.md
-```
-
-### Module Descriptions
-
-* **app/** → Flask backend application
-* **routes/** → API and backend route logic
-* **finance-react/** → React frontend
-* **LiveDataContext.jsx** → shared live market data state
-* **components/** → reusable UI blocks
-* **pages/** → route-level page components
-
----
-
-## Use Cases & Features
-
-### 1. Homepage
-
-* Displays live financial data
-* Uses shared live state from the client context
-* Avoids refetching when navigating back from another page
-
-### 2. Live Top Bar
-
-* Shows financial items in a cleaner horizontal structure
-* Designed to avoid broken wrapping issues
-* Can behave like a ticker or horizontally scrollable chip row on small screens
-
-### 3. Fast Navigation
-
-* React Router enables route transitions without full page reload
-* Improves perceived speed significantly
-
-### 4. Data Visualization
-
-* Asset detail and analysis pages display historical charts
-* Supports multiple ranges such as daily, weekly, monthly, yearly
-
-### 5. User Features
-
-* Authentication pages
-* Profile page
-* Comment and interaction pages
-* Expandable social-style features
-
----
-
-## API Integration Details
-
-### Backend Role
-
-The Flask backend now primarily acts as an API provider rather than a template-rendering engine.
-
-### Example Responsibilities
-
-* Serve live financial data
-* Provide historical chart data
-* Handle authentication-related operations
-* Deliver profile and comment-related backend logic
-
-### Data Flow
-
-1. React frontend requests data from `/api/*`
-2. Flask processes and returns JSON responses
-3. React components consume and render the data
-4. Shared context distributes live data across pages and UI elements
-
----
-
-## UI & Workflows
-
-### Previous Limitation
-
-In the older architecture, page transitions triggered full browser reloads because rendering was handled through Flask + Jinja templates. This negatively affected perceived speed and continuity.  
-
-### Updated UI Flow
-
-* React handles route changes on the client side
-* Layout remains mounted while page content changes
-* Top bar and homepage can consume the same live data source
-* Navigation feels more fluid and modern
-
-### Top Bar Improvement
-
-The redesigned top bar is intended to:
-
-* keep financial items aligned in a cleaner structure
-* avoid asymmetric wrapping problems
-* support smoother horizontal overflow on smaller screens
-* improve readability and consistency
-
----
-
-## Testing
-
-### Backend Testing
-
-* API endpoint validation
-* Business logic checks
-* Historical data and live data response testing
-
-### Frontend Testing
-
-* Route rendering tests
-* Component behavior tests
-* Shared state consistency tests
-* UI responsiveness checks
-
-### Manual Validation Goals
-
-* No unnecessary reload on navigation
-* Top bar remains stable across screen sizes
-* Home page reuses cached/shared live data correctly
-* Asset detail pages fetch the correct chart data
-
----
-
-## Deployment
-
-### Development Mode
-
-Backend:
-
-```bash
-python run.py
-```
-
-Frontend:
-
-```bash
-cd finance-react
-npm run dev
-```
-
-### Production Approach
-
-Recommended production model:
-
-* Build React frontend using Vite
-* Serve compiled frontend separately or behind Flask/reverse proxy
-* Keep Flask backend as API service
-* Use Docker for containerized deployment
-
-### Docker
-
-Tüm uygulamayı tek komutla başlatmak için:
+Start the entire application with a single command:
 
 ```bash
 docker compose up --build
 ```
 
-* React SPA: `http://localhost:5173`
-* Flask API: `http://localhost:8000`
+- React SPA: `http://localhost:5173`
+- Flask API: `http://localhost:8000`
 
-React container'ı API isteklerini Docker ağı üzerinden Flask container'ına
-iletir. Servisleri arka planda başlatmak için `docker compose up --build -d`,
-durdurmak için `docker compose down` kullanılır.
+The frontend container forwards API requests to the backend container over the Docker network. Use `docker compose up --build -d` to run in the background and `docker compose down` to stop.
 
----
+The compose file mounts `instance/database.db` and the `logs/` directory as volumes so data and logs persist across container restarts.
 
-## Troubleshooting & Support
+## Testing
 
-### Common Issues
+Backend tests are run with pytest:
 
-* **Frontend cannot reach backend:** Check Vite proxy or backend port
-* **Slow data refresh:** Verify polling interval and API response times
-* **Broken top bar layout:** Check responsive CSS and overflow handling
-* **Missing chart data:** Verify backend asset/history endpoints
-* **Dependency errors:** Reinstall both Python and npm dependencies
+```bash
+pytest test.py
+```
 
-### Support
+Coverage focuses on API endpoint validation, business logic, and live/historical data responses. Manual validation should confirm that navigation triggers no full reloads, the top bar stays stable across screen sizes, and pages reuse the shared live dataset.
 
-* GitHub Issues
-* Email: [hakankocaeli15@gmail.com](mailto:hakankocaeli15@gmail.com)
+## Troubleshooting
 
----
+- **Frontend cannot reach the backend** — confirm the backend is running on port 8000 and the Vite proxy or `VITE_FLASK_URL` points to it.
+- **Slow data refresh** — check the 60-second polling interval and upstream API response times.
+- **Missing chart data** — verify the asset history endpoints return data for the selected timeframe.
+- **Dependency errors** — reinstall Python and npm dependencies from a clean environment.
+- **Flash messages not visible** — server-side flash messages do not appear in the SPA; form errors are produced client-side.
 
-## Contributors
-
-* **Hakan Polat**
-
----
-
-## Roadmap & Future Improvements
+## Roadmap
 
 ### Short-Term
 
-* Finalize React SPA migration
-* Improve top bar ticker responsiveness
-* Expand API coverage for all pages
-* Improve component-level error handling
-* Add loading and skeleton states
+- Finalize the React SPA migration
+- Improve top bar ticker responsiveness
+- Expand API coverage for all pages
+- Add loading and skeleton states
 
 ### Mid-Term
 
-* Better caching strategy for frequently requested data
-* Authentication/session improvements
-* More advanced chart filtering and comparisons
-* Better mobile optimization
+- Smarter caching for frequently requested data
+- Authentication and session improvements
+- Advanced chart filtering and comparisons
+- Better mobile optimization
 
 ### Long-Term
 
-* WebSocket-based real-time updates instead of polling
-* Role-based access and stronger security
-* Notification/alert system
-* Multi-language support
-* Premium analytics features
-
----
-
-## Additional Resources
-
-* Flask Documentation
-* React Documentation
-* Vite Documentation
-* React Router Documentation
-* Financial API provider documentation
-
-
+- WebSocket-based real-time updates instead of polling
+- Role-based access control
+- Notification and alert system
+- Multi-language support
+- Premium analytics features
